@@ -12,6 +12,11 @@ class MancalaGame {
         this.currentPlayer = 'player'; // 'player' or 'cpu'
         this.gameOver = false;
         this.lastMove = null;
+        this.animationInProgress = false;
+        
+        // Animation settings
+        this.animationSpeed = 600; // milliseconds per step (increased from 300)
+        this.cpuThinkingTime = 1500; // milliseconds for CPU "thinking"
         
         // DOM elements
         this.statusMessage = document.getElementById('status-message');
@@ -159,6 +164,9 @@ class MancalaGame {
     }
     
     resetGame() {
+        // Stop any animations in progress
+        this.animationInProgress = false;
+        
         // Reset board state
         this.board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
         this.currentPlayer = 'player';
@@ -174,8 +182,8 @@ class MancalaGame {
     }
     
     makeMove(pitIndex) {
-        // Check if game is over or if it's not player's turn
-        if (this.gameOver || this.currentPlayer !== 'player') {
+        // Check if game is over, animation in progress, or if it's not player's turn
+        if (this.gameOver || this.currentPlayer !== 'player' || this.animationInProgress) {
             return;
         }
         
@@ -187,34 +195,246 @@ class MancalaGame {
         // Log the move
         this.logDebug(`Player move: Pit ${pitIndex} (${this.board[pitIndex]} stones)`);
         
-        // Execute the move
-        const extraTurn = this.sowStones(pitIndex, 'player');
+        // Animate the move
+        this.animateMove(pitIndex, 'player');
+    }
+    
+    // Process the player's move after animation
+    processMoveAfterAnimation(pitIndex, player) {
+        // Execute the move on the actual board state
+        const extraTurn = this.sowStones(pitIndex, player);
         this.lastMove = pitIndex;
         
         // Log board state after move
-        this.logDebug('After player move:', this.getBoardStateString());
+        this.logDebug(`After ${player} move:`, this.getBoardStateString());
         
-        // Check if the game is over after player's move
+        // Check if the game is over
         if (this.checkGameOver()) {
             this.endGame();
             return;
         }
         
-        // Render the updated board
+        // Render the updated board to show actual state
         this.render();
         
         // Check if player gets an extra turn
         if (extraTurn) {
-            this.setStatusMessage('You get another turn!');
-            this.logDebug('Player gets another turn');
+            if (player === 'player') {
+                this.setStatusMessage('You get another turn!');
+                this.logDebug('Player gets another turn');
+            } else {
+                this.setStatusMessage('CPU gets another turn');
+                this.logDebug('CPU gets another turn');
+                setTimeout(() => this.cpuTurn(), this.cpuThinkingTime);
+            }
         } else {
-            // Switch to CPU's turn
-            this.currentPlayer = 'cpu';
-            this.setStatusMessage('CPU is thinking...');
-            
-            // CPU takes its turn after a short delay
-            setTimeout(() => this.cpuTurn(), 1000);
+            // Switch turns
+            if (player === 'player') {
+                this.currentPlayer = 'cpu';
+                this.setStatusMessage('CPU is thinking...');
+                setTimeout(() => this.cpuTurn(), this.cpuThinkingTime);
+            } else {
+                this.currentPlayer = 'player';
+                this.setStatusMessage('Your turn');
+            }
         }
+    }
+    
+    animateMove(pitIndex, player) {
+        // Mark animation as in progress
+        this.animationInProgress = true;
+        
+        // Get the stones to distribute
+        const stones = this.board[pitIndex];
+        if (stones === 0) {
+            this.animationInProgress = false;
+            return;
+        }
+        
+        // Create a copy of the board state before making changes
+        const originalBoard = [...this.board];
+        
+        // Remove stones from the starting pit in UI only (actual board state is changed in sowStones)
+        this.board[pitIndex] = 0;
+        
+        // Get the container element
+        let sourceContainer;
+        if (player === 'player') {
+            sourceContainer = this.playerPits[pitIndex];
+        } else {
+            sourceContainer = this.cpuPits[12 - pitIndex];
+        }
+        
+        // Render to show empty pit
+        this.render();
+        
+        // Create visual stones for animation
+        const animatedStones = [];
+        for (let i = 0; i < stones; i++) {
+            const stone = document.createElement('div');
+            stone.className = 'stone animated-stone';
+            
+            // Random color
+            const colorIndex = Math.floor(Math.random() * this.stoneColors.length);
+            stone.style.backgroundColor = this.stoneColors[colorIndex];
+            
+            // Initial position in source pit
+            const containerRect = sourceContainer.getBoundingClientRect();
+            const left = Math.random() * (containerRect.width - 15);
+            const top = Math.random() * (containerRect.height - 15);
+            
+            stone.style.left = `${left}px`;
+            stone.style.top = `${top}px`;
+            
+            sourceContainer.appendChild(stone);
+            animatedStones.push(stone);
+        }
+        
+        // Restore the board state for simulation
+        this.board = [...originalBoard];
+        
+        // Simulate the move to determine the path without changing the actual board
+        const movePath = this.simulateMovePath(pitIndex, player);
+        
+        // Animate the distribution of stones
+        this.animateDistribution(pitIndex, player, animatedStones, 0, movePath);
+    }
+    
+    simulateMovePath(pitIndex, player) {
+        // Create a path of pits that stones will move through
+        const stones = this.board[pitIndex];
+        const path = [];
+        let currentPit = pitIndex;
+        
+        // Properly handle counter-clockwise movement based on the visual board layout
+        // Player pits: 0,1,2,3,4,5 (bottom row, left to right)
+        // Player store: 6 (rightmost)
+        // CPU pits: 7,8,9,10,11,12 (top row, right to left)
+        // CPU store: 13 (leftmost)
+        
+        for (let i = 0; i < stones; i++) {
+            // Determine next pit in counter-clockwise order
+            if (currentPit === 5) {
+                // From rightmost player pit to player store
+                currentPit = 6;
+            } else if (currentPit === 6) {
+                // From player store to rightmost CPU pit
+                currentPit = 12;
+            } else if (currentPit === 7) {
+                // From leftmost CPU pit to CPU store
+                currentPit = 13;
+            } else if (currentPit === 13) {
+                // From CPU store to leftmost player pit
+                currentPit = 0;
+            } else if (currentPit >= 0 && currentPit < 5) {
+                // Moving right along player's row
+                currentPit++;
+            } else if (currentPit > 7 && currentPit <= 12) {
+                // Moving left along CPU's row
+                currentPit--;
+            }
+            
+            // Skip opponent's store
+            if (player === 'player' && currentPit === 13) {
+                // Player skips CPU's store
+                currentPit = 0;
+            } else if (player === 'cpu' && currentPit === 6) {
+                // CPU skips player's store
+                currentPit = 12;
+            }
+            
+            path.push(currentPit);
+        }
+        
+        return path;
+    }
+    
+    animateDistribution(pitIndex, player, stones, currentStone, movePath) {
+        if (currentStone >= stones.length || !this.animationInProgress) {
+            // Animation completed or cancelled
+            this.removeAnimatedStones();
+            // Now we actually make the move after the animation
+            this.processMoveAfterAnimation(pitIndex, player);
+            return;
+        }
+        
+        // Get the target pit from the pre-calculated path
+        const targetPit = movePath[currentStone];
+        
+        // Get the stone to animate
+        const stone = stones[currentStone];
+        
+        // Get target container
+        let targetContainer;
+        if (targetPit === 6) {
+            targetContainer = this.playerStore;
+        } else if (targetPit === 13) {
+            targetContainer = this.cpuStore;
+        } else if (targetPit >= 0 && targetPit <= 5) {
+            targetContainer = this.playerPits[targetPit];
+        } else {
+            targetContainer = this.cpuPits[12 - targetPit];
+        }
+        
+        // Get the position and dimensions
+        const targetRect = targetContainer.getBoundingClientRect();
+        const sourceRect = stone.parentElement.getBoundingClientRect();
+        
+        // Calculate new position
+        const centerX = targetRect.left + targetRect.width / 2 - sourceRect.left;
+        const centerY = targetRect.top + targetRect.height / 2 - sourceRect.top;
+        
+        // Add randomness to final position
+        const finalX = centerX + (Math.random() * 30 - 15);
+        const finalY = centerY + (Math.random() * 30 - 15);
+        
+        // Animate the stone
+        stone.style.transition = `transform ${this.animationSpeed}ms ease-in-out`;
+        stone.style.transform = `translate(${finalX}px, ${finalY}px)`;
+        
+        // Visual feedback - DO NOT update the actual stone count
+        // This will just show movement in the UI
+        targetContainer.classList.add('active');
+        setTimeout(() => {
+            targetContainer.classList.remove('active');
+        }, this.animationSpeed);
+        
+        // Move the stone to the target container after animation
+        setTimeout(() => {
+            if (!this.animationInProgress) return;
+            
+            try {
+                targetContainer.appendChild(stone);
+                stone.style.transform = 'none';
+                stone.style.transition = 'none';
+                
+                // Position the stone randomly in the new container
+                const containerWidth = targetContainer.clientWidth - 15;
+                const containerHeight = targetContainer.clientHeight - 15;
+                const left = Math.random() * containerWidth;
+                const top = Math.random() * containerHeight;
+                
+                stone.style.left = `${left}px`;
+                stone.style.top = `${top}px`;
+                
+                // Continue to next stone
+                setTimeout(() => {
+                    this.animateDistribution(pitIndex, player, stones, currentStone + 1, movePath);
+                }, 50);
+            } catch (e) {
+                console.error("Animation error:", e);
+                // Gracefully handle error by stopping animation
+                this.removeAnimatedStones();
+                this.processMoveAfterAnimation(pitIndex, player);
+            }
+        }, this.animationSpeed);
+    }
+    
+    removeAnimatedStones() {
+        document.querySelectorAll('.animated-stone').forEach(stone => {
+            stone.remove();
+        });
+        this.animationInProgress = false;
     }
     
     sowStones(pitIndex, player) {
@@ -222,64 +442,136 @@ class MancalaGame {
         this.board[pitIndex] = 0;
         
         let currentPit = pitIndex;
+        let lastPit = null;
         let extraTurn = false;
-        let distributionPath = [];
         
-        // Track distribution for debugging
-        distributionPath.push(pitIndex);
+        // Properly handle counter-clockwise movement based on the visual board layout
+        // Player pits: 0,1,2,3,4,5 (bottom row, left to right)
+        // Player store: 6 (rightmost)
+        // CPU pits: 7,8,9,10,11,12 (top row, right to left)
+        // CPU store: 13 (leftmost)
         
-        // Distribute stones
         for (let i = 0; i < stones; i++) {
-            currentPit = (currentPit + 1) % 14;
-            
-            // Skip opponent's store
-            if ((player === 'player' && currentPit === 13) || 
-                (player === 'cpu' && currentPit === 6)) {
-                currentPit = (currentPit + 1) % 14;
+            // Determine next pit in counter-clockwise order
+            if (currentPit === 5) {
+                // From rightmost player pit to player store
+                currentPit = 6;
+            } else if (currentPit === 6) {
+                // From player store to rightmost CPU pit
+                currentPit = 12;
+            } else if (currentPit === 7) {
+                // From leftmost CPU pit to CPU store
+                currentPit = 13;
+            } else if (currentPit === 13) {
+                // From CPU store to leftmost player pit
+                currentPit = 0;
+            } else if (currentPit >= 0 && currentPit < 5) {
+                // Moving right along player's row
+                currentPit++;
+            } else if (currentPit > 7 && currentPit <= 12) {
+                // Moving left along CPU's row
+                currentPit--;
             }
             
-            this.board[currentPit]++;
-            distributionPath.push(currentPit);
+            // Skip opponent's store
+            if (player === 'player' && currentPit === 13) {
+                // Player skips CPU's store
+                currentPit = 0;
+            } else if (player === 'cpu' && currentPit === 6) {
+                // CPU skips player's store
+                currentPit = 12;
+            }
             
-            // Check if last stone lands in player's store
-            if (i === stones - 1) {
-                if ((player === 'player' && currentPit === 6) || 
-                    (player === 'cpu' && currentPit === 13)) {
-                    extraTurn = true;
-                    this.logDebug(`${player} gets extra turn - last stone in store`);
+            // Add stone to the current pit
+            this.board[currentPit]++;
+            lastPit = currentPit;
+        }
+        
+        // Check if last stone landed in player's own store
+        if ((player === 'player' && lastPit === 6) || (player === 'cpu' && lastPit === 13)) {
+            extraTurn = true;
+        }
+        
+        // Check for capture
+        if (!extraTurn) {
+            // Player capture condition: last stone lands in an empty pit on player's side
+            if (player === 'player' && lastPit >= 0 && lastPit <= 5 && this.board[lastPit] === 1) {
+                const oppositePit = 12 - lastPit;
+                if (this.board[oppositePit] > 0) {
+                    // Capture opposite stones and the capturing stone
+                    this.board[6] += this.board[oppositePit] + 1;
+                    this.board[oppositePit] = 0;
+                    this.board[lastPit] = 0;
                 }
-                
-                // Check for capture: last stone lands in empty pit on player's side
-                if (this.board[currentPit] === 1) {
-                    if (player === 'player' && currentPit >= 0 && currentPit <= 5) {
-                        const oppositePit = 12 - currentPit;
-                        if (this.board[oppositePit] > 0) {
-                            // Capture stones
-                            this.logDebug(`Player captures ${this.board[oppositePit]} stones from pit ${oppositePit}`);
-                            this.board[6] += this.board[oppositePit] + 1;
-                            this.board[oppositePit] = 0;
-                            this.board[currentPit] = 0;
-                        }
-                    } else if (player === 'cpu' && currentPit >= 7 && currentPit <= 12) {
-                        const oppositePit = 12 - currentPit;
-                        if (this.board[oppositePit] > 0) {
-                            // Capture stones
-                            this.logDebug(`CPU captures ${this.board[oppositePit]} stones from pit ${oppositePit}`);
-                            this.board[13] += this.board[oppositePit] + 1;
-                            this.board[oppositePit] = 0;
-                            this.board[currentPit] = 0;
-                        }
-                    }
+            }
+            // CPU capture condition: last stone lands in an empty pit on CPU's side
+            else if (player === 'cpu' && lastPit >= 7 && lastPit <= 12 && this.board[lastPit] === 1) {
+                const oppositePit = 12 - lastPit;
+                if (this.board[oppositePit] > 0) {
+                    // Capture opposite stones and the capturing stone
+                    this.board[13] += this.board[oppositePit] + 1;
+                    this.board[oppositePit] = 0;
+                    this.board[lastPit] = 0;
                 }
             }
         }
         
-        this.logDebug(`Stone distribution path: ${distributionPath.join(' → ')}`);
         return extraTurn;
     }
     
+    simulateMove(pitIndex) {
+        // Create a copy of the board for simulation
+        this.simulateBoardState = [...this.board];
+        
+        const stones = this.simulateBoardState[pitIndex];
+        this.simulateBoardState[pitIndex] = 0;
+        
+        let currentPit = pitIndex;
+        let lastPit = null;
+        
+        // Properly handle counter-clockwise movement based on the visual board layout
+        // Player pits: 0,1,2,3,4,5 (bottom row, left to right)
+        // Player store: 6 (rightmost)
+        // CPU pits: 7,8,9,10,11,12 (top row, right to left)
+        // CPU store: 13 (leftmost)
+        
+        for (let i = 0; i < stones; i++) {
+            // Determine next pit in counter-clockwise order
+            if (currentPit === 5) {
+                // From rightmost player pit to player store
+                currentPit = 6;
+            } else if (currentPit === 6) {
+                // From player store to rightmost CPU pit
+                currentPit = 12;
+            } else if (currentPit === 7) {
+                // From leftmost CPU pit to CPU store
+                currentPit = 13;
+            } else if (currentPit === 13) {
+                // From CPU store to leftmost player pit
+                currentPit = 0;
+            } else if (currentPit >= 0 && currentPit < 5) {
+                // Moving right along player's row
+                currentPit++;
+            } else if (currentPit > 7 && currentPit <= 12) {
+                // Moving left along CPU's row
+                currentPit--;
+            }
+            
+            // Skip player's store (CPU is moving)
+            if (currentPit === 6) {
+                currentPit = 12;
+            }
+            
+            // Add stone to the current pit
+            this.simulateBoardState[currentPit]++;
+            lastPit = currentPit;
+        }
+        
+        return lastPit;
+    }
+    
     cpuTurn() {
-        if (this.gameOver) return;
+        if (this.gameOver || this.animationInProgress) return;
         
         // Choose a move based on simple heuristic
         const pitIndex = this.chooseCpuMove();
@@ -288,31 +580,8 @@ class MancalaGame {
             // Log the CPU move
             this.logDebug(`CPU move: Pit ${pitIndex} (${this.board[pitIndex]} stones)`);
             
-            // Execute the move
-            const extraTurn = this.sowStones(pitIndex, 'cpu');
-            
-            // Log board state after move
-            this.logDebug('After CPU move:', this.getBoardStateString());
-            
-            // Check if the game is over after CPU's move
-            if (this.checkGameOver()) {
-                this.endGame();
-                return;
-            }
-            
-            // Render the updated board
-            this.render();
-            
-            // Check if CPU gets an extra turn
-            if (extraTurn) {
-                this.setStatusMessage('CPU gets another turn');
-                this.logDebug('CPU gets another turn');
-                setTimeout(() => this.cpuTurn(), 1000);
-            } else {
-                // Switch back to player's turn
-                this.currentPlayer = 'player';
-                this.setStatusMessage('Your turn');
-            }
+            // Animate the CPU move
+            this.animateMove(pitIndex, 'cpu');
         } else {
             // No valid move for CPU
             this.logDebug('WARNING: No valid move for CPU');
@@ -377,30 +646,6 @@ class MancalaGame {
         return bestPit;
     }
     
-    simulateMove(pitIndex) {
-        // Create a copy of the board for simulation
-        this.simulateBoardState = [...this.board];
-        
-        const stones = this.simulateBoardState[pitIndex];
-        this.simulateBoardState[pitIndex] = 0;
-        
-        let currentPit = pitIndex;
-        
-        // Distribute stones
-        for (let i = 0; i < stones; i++) {
-            currentPit = (currentPit + 1) % 14;
-            
-            // Skip opponent's store (player's store)
-            if (currentPit === 6) {
-                currentPit = 7;
-            }
-            
-            this.simulateBoardState[currentPit]++;
-        }
-        
-        return currentPit;
-    }
-    
     checkGameOver() {
         // Check if all pits on either side are empty
         const playerSideEmpty = this.board.slice(0, 6).every(stones => stones === 0);
@@ -455,8 +700,8 @@ class MancalaGame {
     }
     
     render() {
-        // Clear all stones first
-        document.querySelectorAll('.stone').forEach(stone => stone.remove());
+        // Clear all stones first (except animated ones)
+        document.querySelectorAll('.stone:not(.animated-stone)').forEach(stone => stone.remove());
         
         // Update player pits
         for (let i = 0; i < 6; i++) {
@@ -468,7 +713,7 @@ class MancalaGame {
             this.renderStones(pit, count);
             
             // Enable/disable pits based on game state
-            if (this.currentPlayer === 'player' && count > 0 && !this.gameOver) {
+            if (this.currentPlayer === 'player' && count > 0 && !this.gameOver && !this.animationInProgress) {
                 pit.classList.remove('disabled');
             } else {
                 pit.classList.add('disabled');
@@ -496,6 +741,11 @@ class MancalaGame {
     }
     
     renderStones(container, count, isStore = false) {
+        // Skip rendering if there are animated stones in progress
+        if (container.querySelector('.animated-stone')) {
+            return;
+        }
+        
         // Don't render too many stones visually
         const maxVisualStones = isStore ? 30 : 15;
         const visibleCount = Math.min(count, maxVisualStones);
