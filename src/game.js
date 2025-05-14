@@ -40,14 +40,14 @@ class MancalaGame {
         this.debugConsole = document.querySelector('.debug-console');
         this.debugVisible = true;
         
-        // Stone colors
+        // Updated colorful stone colors to exactly match the image
         this.stoneColors = [
-            '#f5deb3', // wheat
-            '#deb887', // burlywood
-            '#d2b48c', // tan
-            '#bc8f8f', // rosybrown
-            '#a9a9a9', // darkgray
-            '#808080'  // gray
+            '#ffff00', // yellow
+            '#87ceeb', // light blue
+            '#ff8c00', // orange
+            '#9932cc', // purple
+            '#32cd32', // green
+            '#ffffff'  // white
         ];
         
         // Initialize the game
@@ -707,6 +707,9 @@ class MancalaGame {
         for (let i = 0; i < 6; i++) {
             const pit = this.playerPits[i];
             const count = this.board[i];
+            
+            // Set data-count attribute for CSS to display
+            pit.setAttribute('data-count', count);
             pit.querySelector('.stones-count').textContent = count;
             
             // Add visual stones
@@ -724,6 +727,9 @@ class MancalaGame {
         for (let i = 0; i < 6; i++) {
             const pit = this.cpuPits[i];
             const count = this.board[12 - i];
+            
+            // Set data-count attribute for CSS to display
+            pit.setAttribute('data-count', count);
             pit.querySelector('.stones-count').textContent = count;
             pit.classList.add('disabled'); // CPU pits are always disabled for player
             
@@ -734,6 +740,10 @@ class MancalaGame {
         // Update stores
         this.playerStore.querySelector('.store-count').textContent = this.board[6];
         this.cpuStore.querySelector('.store-count').textContent = this.board[13];
+        
+        // Update the store counts displayed by the ::after pseudo-element
+        this.playerStore.setAttribute('data-count', this.board[6]);
+        this.cpuStore.setAttribute('data-count', this.board[13]);
         
         // Add visual stones to stores
         this.renderStones(this.playerStore, this.board[6], true);
@@ -747,7 +757,7 @@ class MancalaGame {
         }
         
         // Don't render too many stones visually
-        const maxVisualStones = isStore ? 30 : 15;
+        const maxVisualStones = isStore ? 6 : 4;
         const visibleCount = Math.min(count, maxVisualStones);
         
         for (let i = 0; i < visibleCount; i++) {
@@ -755,27 +765,33 @@ class MancalaGame {
             stone.className = 'stone';
             
             // Random position within the container
-            const containerWidth = container.clientWidth - 15;
-            const containerHeight = container.clientHeight - 15;
+            const containerWidth = container.clientWidth - 25;
+            const containerHeight = container.clientHeight - 25;
             
             let left, top;
             
             if (isStore) {
-                // For stores, distribute more evenly
-                const rows = Math.ceil(Math.sqrt(visibleCount));
-                const cols = Math.ceil(visibleCount / rows);
-                const row = Math.floor(i / cols);
-                const col = i % cols;
+                // For stores, cluster them more in the center
+                const centerX = containerWidth / 2;
+                const centerY = containerHeight / 2;
                 
-                const cellWidth = containerWidth / cols;
-                const cellHeight = containerHeight / rows;
+                // Create a more clustered arrangement
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * 25;
                 
-                left = col * cellWidth + Math.random() * 10 - 5;
-                top = row * cellHeight + Math.random() * 10 - 5;
+                left = centerX + Math.cos(angle) * distance;
+                top = centerY + Math.sin(angle) * distance;
             } else {
-                // For pits, more random distribution
-                left = Math.random() * containerWidth;
-                top = Math.random() * containerHeight;
+                // For pits, create a tighter cluster in the center
+                const centerX = containerWidth / 2;
+                const centerY = containerHeight / 2;
+                
+                // Random angle and shorter distance to keep them closer to center
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * 15;
+                
+                left = centerX + Math.cos(angle) * distance;
+                top = centerY + Math.sin(angle) * distance;
             }
             
             // Ensure stones stay within bounds

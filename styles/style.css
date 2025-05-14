@@ -1,12 +1,12 @@
 :root {
-    --primary-color: #8b5a2b;
+    --primary-color: #c19a6b; /* Light wooden board color */
     --secondary-color: #d2b48c;
-    --pit-color: #654321;
+    --pit-color: #a67c52; /* Darker brown for pits */
     --stone-color: #a9a9a9;
     --player-highlight: #4682b4;
     --cpu-highlight: #b22222;
     --text-color: #333;
-    --background-color: #f5f5dc;
+    --background-color: #666666; /* Gray background */
 }
 
 * {
@@ -34,7 +34,7 @@ body {
 h1 {
     text-align: center;
     margin-bottom: 20px;
-    color: var(--primary-color);
+    color: white;
     font-size: 2.5rem;
 }
 
@@ -70,24 +70,60 @@ h1 {
 }
 
 #reset-button:hover, #rules-button:hover {
-    background-color: #7a4a1d;
+    background-color: #a67c52;
 }
 
+/* Main game board styling - updated to match image */
 .game-board {
     display: flex;
-    justify-content: center;
+    justify-content: space-between; /* Push stores to the edges */
     align-items: center;
-    background-color: var(--primary-color);
-    border-radius: 20px;
-    padding: 20px;
+    background-color: #b38f65;
+    border-radius: 40px;
+    padding: 20px 30px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    position: relative;
+    max-width: 700px;
+    margin: 0 auto;
+    aspect-ratio: 1.6 / 1;
+    border: 12px solid #d8b585;
+}
+
+/* Add Flutter branding to the center of the board */
+.flutter-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+.flutter-logo img {
+    width: 150px;
+    height: auto;
+    opacity: 0.8;
+}
+
+.flutter-f {
+    font-size: 42px;
+    padding-right: 2px;
+    margin-top: -2px;
+}
+
+/* Remove the previous logo implementation */
+.game-board::after {
+    display: none;
 }
 
 .pits-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    margin: 0 20px;
+    justify-content: space-between; /* Push rows to the edges */
+    margin: 0;
+    position: relative;
+    flex: 1;
+    height: 100%; /* Fill the height */
+    padding: 20px 0;
 }
 
 .row {
@@ -96,9 +132,10 @@ h1 {
     gap: 15px;
 }
 
+/* Make the board more spacious in the middle */
 .pit {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     background-color: var(--pit-color);
     display: flex;
@@ -110,11 +147,31 @@ h1 {
     overflow: visible; /* Allow stones to overflow for animation */
 }
 
-.stones-count {
-    color: white;
+/* Add stone counts above and below the board */
+.cpu-row .pit::before {
+    content: attr(data-count);
+    position: absolute;
+    bottom: 85px; /* Moved 5px closer to the pit */
+    left: 50%;
+    transform: translateX(-50%);
+    color: #8b5a2b;
+    font-size: 28px;
     font-weight: bold;
-    font-size: 1.2rem;
-    z-index: 2;
+}
+
+.player-row .pit::after {
+    content: attr(data-count);
+    position: absolute;
+    top: 85px; /* Moved 5px closer to the pit */
+    left: 50%;
+    transform: translateX(-50%);
+    color: #8b5a2b;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.stones-count {
+    display: none; /* Hide the original stone count */
 }
 
 .player-pit {
@@ -123,41 +180,63 @@ h1 {
 
 .player-pit:hover {
     transform: scale(1.05);
-    box-shadow: 0 0 15px var(--player-highlight), inset 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
+/* Update store pit shape to match image */
 .store {
-    width: 100px;
-    height: 180px;
-    border-radius: 50px;
-    background-color: var(--pit-color);
+    width: 70px;
+    height: 75%; /* Make stores 80% of the board height */
+    align-self: center;
+    border-radius: 40px;
+    background-color: #8e6b44;
     display: flex;
     justify-content: center;
     align-items: center;
     box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.4);
     position: relative;
     overflow: visible; /* Allow stones to overflow for animation */
+    margin: 0 5px;
+}
+
+/* Add store counts in the center */
+#player-store::after,
+#cpu-store::after {
+    content: attr(data-count);
+    position: absolute;
+    color: #8b5a2b;
+    font-size: 36px;
+    font-weight: bold;
 }
 
 .store-count {
-    color: white;
-    font-weight: bold;
-    font-size: 1.5rem;
+    display: none; /* Hide the original store count */
 }
 
 .cpu-row {
     flex-direction: row-reverse;
 }
 
-/* Stone Styles */
+/* Colorful Stone Styles */
 .stone {
-    width: 15px;
-    height: 15px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     position: absolute;
-    background-color: var(--stone-color);
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
     z-index: 5;
+}
+
+/* Add highlights to stones to make them look shiny */
+.stone::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 4px;
+    left: 4px;
 }
 
 /* Animated Stone Styles */
@@ -171,6 +250,11 @@ h1 {
 .pit.active {
     box-shadow: 0 0 15px #ffff00, inset 0 0 10px rgba(0, 0, 0, 0.3);
     animation: pulse 1s infinite alternate;
+}
+
+/* Add highlighted border to player's active row */
+.player-row .pit {
+    border: 3px solid white;
 }
 
 @keyframes pulse {
