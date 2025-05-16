@@ -14,6 +14,13 @@ class MancalaGame {
         this.lastMove = null;
         this.animationInProgress = false;
         
+        // Add a simple seeded random number generator for consistent stone placement
+        this.randomSeed = 12345;
+        this.seededRandom = () => {
+            this.randomSeed = (this.randomSeed * 9301 + 49297) % 233280;
+            return this.randomSeed / 233280;
+        };
+        
         // Animation settings
         this.animationSpeed = 600; // milliseconds per step (increased from 300)
         this.cpuThinkingTime = 1500; // milliseconds for CPU "thinking"
@@ -54,6 +61,9 @@ class MancalaGame {
             '#32cd32', // green
             '#ffffff'  // white
         ];
+        
+        // Add a map to store stone positions and colors
+        this.stonePositionsMap = new Map();
         
         // Initialize the game
         this.init();
@@ -178,6 +188,9 @@ class MancalaGame {
         this.gameOver = false;
         this.lastMove = null;
         
+        // Clear stone positions map to get new random positions for the new game
+        this.stonePositionsMap = new Map();
+        
         // Update UI
         this.render();
         this.setStatusMessage('Your turn');
@@ -279,9 +292,25 @@ class MancalaGame {
             const stone = document.createElement('div');
             stone.className = 'stone animated-stone';
             
-            // Random color
-            const colorIndex = Math.floor(Math.random() * this.stoneColors.length);
-            stone.style.backgroundColor = this.stoneColors[colorIndex];
+            // Get consistent color from our position map if available
+            let containerID = null;
+            if (player === 'player') {
+                containerID = 'player-' + pitIndex;
+            } else {
+                containerID = 'cpu-' + (12 - pitIndex);
+            }
+            
+            // Use consistent colors from our map if possible
+            let colorToUse;
+            if (this.stonePositionsMap.has(containerID) && i < this.stonePositionsMap.get(containerID).length) {
+                colorToUse = this.stonePositionsMap.get(containerID)[i].color;
+            } else {
+                // Fallback to random color
+                const colorIndex = Math.floor(Math.random() * this.stoneColors.length);
+                colorToUse = this.stoneColors[colorIndex];
+            }
+            
+            stone.style.backgroundColor = colorToUse;
             
             // Initial position in source pit
             const containerRect = sourceContainer.getBoundingClientRect();
@@ -413,14 +442,27 @@ class MancalaGame {
                 stone.style.transform = 'none';
                 stone.style.transition = 'none';
                 
-                // Position the stone randomly in the new container
-                const containerWidth = targetContainer.clientWidth - 15;
-                const containerHeight = targetContainer.clientHeight - 15;
-                const left = Math.random() * containerWidth;
-                const top = Math.random() * containerHeight;
+                // Get the target container ID
+                const targetContainerID = targetContainer.id || 
+                    (targetContainer.classList.contains('player-pit') ? 'player-' + this.playerPits.indexOf(targetContainer) : 
+                     targetContainer.classList.contains('cpu-pit') ? 'cpu-' + this.cpuPits.indexOf(targetContainer) : 'unknown');
                 
-                stone.style.left = `${left}px`;
-                stone.style.top = `${top}px`;
+                // Use consistent position and rotation if available for this stone index in target container
+                if (this.stonePositionsMap.has(targetContainerID) && currentStone < this.stonePositionsMap.get(targetContainerID).length) {
+                    const stoneData = this.stonePositionsMap.get(targetContainerID)[currentStone];
+                    stone.style.left = stoneData.left + 'px';
+                    stone.style.top = stoneData.top + 'px';
+                    stone.style.transform = `rotate(${stoneData.rotation}deg)`;
+                } else {
+                    // Fallback to random positioning
+                    const containerWidth = targetContainer.clientWidth - 15;
+                    const containerHeight = targetContainer.clientHeight - 15;
+                    const left = Math.random() * containerWidth;
+                    const top = Math.random() * containerHeight;
+                    
+                    stone.style.left = `${left}px`;
+                    stone.style.top = `${top}px`;
+                }
                 
                 // Continue to next stone
                 setTimeout(() => {
@@ -817,54 +859,78 @@ class MancalaGame {
         const maxVisualStones = isStore ? 6 : 4;
         const visibleCount = Math.min(count, maxVisualStones);
         
+        // Create unique ID for this container
+        const containerID = container.id || 
+                          (container.classList.contains('player-pit') ? 'player-' + this.playerPits.indexOf(container) : 
+                           container.classList.contains('cpu-pit') ? 'cpu-' + this.cpuPits.indexOf(container) : 'unknown');
+        
+        // Initialize positions for this container if not already done
+        if (!this.stonePositionsMap.has(containerID)) {
+            this.stonePositionsMap.set(containerID, []);
+            
+            // Reset the seed based on container ID to ensure same container always gets same positions
+            this.randomSeed = containerID.split('').reduce((acc, char) => acc + char.charCodeAt(0), 12345);
+            
+            // Pre-generate stone positions and colors for the maximum number of stones
+            for (let i = 0; i < maxVisualStones; i++) {
+                const containerWidth = container.clientWidth - 25;
+                const containerHeight = container.clientHeight - 25;
+                
+                let left, top;
+                
+                if (isStore) {
+                    // For stores, cluster them more in the center
+                    const centerX = containerWidth / 2;
+                    const centerY = containerHeight / 2;
+                    
+                    // Create a more clustered arrangement
+                    const angle = this.seededRandom() * Math.PI * 2;
+                    const distance = this.seededRandom() * 25;
+                    
+                    left = centerX + Math.cos(angle) * distance;
+                    top = centerY + Math.sin(angle) * distance;
+                } else {
+                    // For pits, create a tighter cluster in the center
+                    const centerX = containerWidth / 2;
+                    const centerY = containerHeight / 2;
+                    
+                    // Random angle and shorter distance to keep them closer to center
+                    const angle = this.seededRandom() * Math.PI * 2;
+                    const distance = this.seededRandom() * 15;
+                    
+                    left = centerX + Math.cos(angle) * distance;
+                    top = centerY + Math.sin(angle) * distance;
+                }
+                
+                // Ensure stones stay within bounds
+                left = Math.max(5, Math.min(containerWidth - 5, left));
+                top = Math.max(5, Math.min(containerHeight - 5, top));
+                
+                // Random color from our palette
+                const colorIndex = Math.floor(this.seededRandom() * this.stoneColors.length);
+                const rotation = this.seededRandom() * 360;
+                
+                this.stonePositionsMap.get(containerID).push({
+                    left: left,
+                    top: top,
+                    color: this.stoneColors[colorIndex],
+                    rotation: rotation
+                });
+            }
+        }
+        
+        // Use the saved positions and colors to render stones
         for (let i = 0; i < visibleCount; i++) {
             const stone = document.createElement('div');
             stone.className = 'stone';
             
-            // Random position within the container
-            const containerWidth = container.clientWidth - 25;
-            const containerHeight = container.clientHeight - 25;
+            // Get the pre-generated position, color and rotation for this stone
+            const stoneData = this.stonePositionsMap.get(containerID)[i];
             
-            let left, top;
-            
-            if (isStore) {
-                // For stores, cluster them more in the center
-                const centerX = containerWidth / 2;
-                const centerY = containerHeight / 2;
-                
-                // Create a more clustered arrangement
-                const angle = Math.random() * Math.PI * 2;
-                const distance = Math.random() * 25;
-                
-                left = centerX + Math.cos(angle) * distance;
-                top = centerY + Math.sin(angle) * distance;
-            } else {
-                // For pits, create a tighter cluster in the center
-                const centerX = containerWidth / 2;
-                const centerY = containerHeight / 2;
-                
-                // Random angle and shorter distance to keep them closer to center
-                const angle = Math.random() * Math.PI * 2;
-                const distance = Math.random() * 15;
-                
-                left = centerX + Math.cos(angle) * distance;
-                top = centerY + Math.sin(angle) * distance;
-            }
-            
-            // Ensure stones stay within bounds
-            left = Math.max(5, Math.min(containerWidth - 5, left));
-            top = Math.max(5, Math.min(containerHeight - 5, top));
-            
-            stone.style.left = left + 'px';
-            stone.style.top = top + 'px';
-            
-            // Random color from our palette
-            const colorIndex = Math.floor(Math.random() * this.stoneColors.length);
-            stone.style.backgroundColor = this.stoneColors[colorIndex];
-            
-            // Random rotation for natural look
-            const rotation = Math.random() * 360;
-            stone.style.transform = `rotate(${rotation}deg)`;
+            stone.style.left = stoneData.left + 'px';
+            stone.style.top = stoneData.top + 'px';
+            stone.style.backgroundColor = stoneData.color;
+            stone.style.transform = `rotate(${stoneData.rotation}deg)`;
             
             container.appendChild(stone);
         }
