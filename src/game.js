@@ -25,6 +25,21 @@ class MancalaGame {
         this.animationSpeed = 600; // milliseconds per step (increased from 300)
         this.cpuThinkingTime = 1500; // milliseconds for CPU "thinking"
         
+        // Sound effects
+        this.stoneDropSound = new Audio('assets/sounds/stone-drop.mp3');
+        this.stoneDropSound.volume = 0.5; // Set volume to 50%
+        this.soundEnabled = true; // For toggling sound on/off
+        
+        // Preload the sound effect
+        this.stoneDropSound.load();
+        this.stoneDropSound.oncanplaythrough = () => {
+            this.logDebug('Stone drop sound loaded and ready to play');
+        };
+        this.stoneDropSound.onerror = (e) => {
+            this.logDebug('WARNING: Error loading stone drop sound', e);
+            this.soundEnabled = false; // Disable sound if there's an error
+        };
+        
         // DOM elements
         this.statusMessage = document.getElementById('status-message');
         this.resetButton = document.getElementById('reset-button');
@@ -73,6 +88,10 @@ class MancalaGame {
         // Add event listeners
         this.resetButton.addEventListener('click', () => this.resetGame());
         this.rulesButton.addEventListener('click', () => this.showRulesModal());
+        
+        // Add sound toggle functionality
+        this.soundToggleButton = document.getElementById('sound-toggle-button');
+        this.soundToggleButton.addEventListener('click', () => this.toggleSound());
         
         // Add click events to player pits
         this.playerPits.forEach((pit, index) => {
@@ -441,6 +460,9 @@ class MancalaGame {
                 targetContainer.appendChild(stone);
                 stone.style.transform = 'none';
                 stone.style.transition = 'none';
+                
+                // Play stone drop sound
+                this.playSound(this.stoneDropSound);
                 
                 // Get the target container ID
                 const targetContainerID = targetContainer.id || 
@@ -938,6 +960,30 @@ class MancalaGame {
     
     setStatusMessage(message) {
         this.statusMessage.textContent = message;
+    }
+    
+    playSound(sound) {
+        if (this.soundEnabled) {
+            // Clone the sound to allow overlapping sounds
+            const soundClone = sound.cloneNode();
+            soundClone.volume = sound.volume;
+            soundClone.play().catch(error => {
+                // Silently handle autoplay restrictions
+                console.log("Sound playback prevented:", error);
+            });
+        }
+    }
+    
+    toggleSound() {
+        this.soundEnabled = !this.soundEnabled;
+        if (this.soundEnabled) {
+            this.soundToggleButton.textContent = '🔊 Sound On';
+            // Play a quick sound to confirm it's on
+            this.playSound(this.stoneDropSound);
+        } else {
+            this.soundToggleButton.textContent = '🔇 Sound Off';
+        }
+        this.logDebug(`Sound ${this.soundEnabled ? 'enabled' : 'disabled'}`);
     }
 }
 

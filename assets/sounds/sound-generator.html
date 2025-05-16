@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stone Drop Sound Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .recorder {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .instructions {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stone Drop Sound Generator</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <p>This page helps you generate a stone dropping sound effect for the Mancala game.</p>
+        <ol>
+            <li>Click the "Play Sound" button to preview</li>
+            <li>Use your browser's or system's audio recording capabilities to capture the sound</li>
+            <li>Save the captured audio as "stone-drop.mp3" in the assets/sounds directory</li>
+        </ol>
+    </div>
+    
+    <button id="playSound">Play Stone Drop Sound</button>
+    
+    <script>
+        // Stone drop sound generator
+        function generateStoneDropSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const duration = 0.5;
+            
+            // Create oscillator (for the main "knock" sound)
+            const osc = audioContext.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, audioContext.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioContext.currentTime + 0.3);
+            
+            // Create noise (for the "rattle" effect)
+            const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.2, audioContext.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseBuffer.length; i++) {
+                noiseData[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = noiseBuffer;
+            
+            // Gain nodes to control volume
+            const oscGain = audioContext.createGain();
+            oscGain.gain.setValueAtTime(0.2, audioContext.currentTime);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+            
+            const noiseGain = audioContext.createGain();
+            noiseGain.gain.setValueAtTime(0.05, audioContext.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+            
+            // Filter to make it sound more wooden
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, audioContext.currentTime);
+            filter.Q.setValueAtTime(0.7, audioContext.currentTime);
+            
+            // Connect the graph
+            osc.connect(oscGain);
+            noise.connect(noiseGain);
+            oscGain.connect(filter);
+            noiseGain.connect(filter);
+            filter.connect(audioContext.destination);
+            
+            // Start and stop the sources
+            osc.start();
+            noise.start();
+            osc.stop(audioContext.currentTime + duration);
+            noise.stop(audioContext.currentTime + 0.2);
+            
+            return audioContext;
+        }
+        
+        document.getElementById('playSound').addEventListener('click', function() {
+            generateStoneDropSound();
+        });
+    </script>
+</body>
+</html> 
