@@ -40,6 +40,11 @@ class MancalaGame {
         this.debugConsole = document.querySelector('.debug-console');
         this.debugVisible = true;
         
+        // Make sure debug console is visible by default
+        this.debugLog.style.display = 'block';
+        this.debugConsole.style.display = 'block';
+        this.toggleDebugButton.textContent = 'Hide';
+        
         // Updated colorful stone colors to exactly match the image
         this.stoneColors = [
             '#ffff00', // yellow
@@ -490,28 +495,39 @@ class MancalaGame {
         // Check if last stone landed in player's own store
         if ((player === 'player' && lastPit === 6) || (player === 'cpu' && lastPit === 13)) {
             extraTurn = true;
+            this.logDebug(`${player} gets extra turn for landing in store`);
         }
         
         // Check for capture
         if (!extraTurn) {
             // Player capture condition: last stone lands in an empty pit on player's side
             if (player === 'player' && lastPit >= 0 && lastPit <= 5 && this.board[lastPit] === 1) {
-                const oppositePit = 12 - lastPit;
+                // Calculate opposite pit - for player, the opposite pit is 7 more than the player's pit
+                const oppositePit = lastPit + 7;
+                this.logDebug(`Player CAPTURE check: last pit ${lastPit} has 1 stone, opposite pit ${oppositePit} has ${this.board[oppositePit]} stones`);
+                
                 if (this.board[oppositePit] > 0) {
                     // Capture opposite stones and the capturing stone
-                    this.board[6] += this.board[oppositePit] + 1;
+                    const capturedStones = this.board[oppositePit] + 1;
+                    this.board[6] += capturedStones;
                     this.board[oppositePit] = 0;
                     this.board[lastPit] = 0;
+                    this.logDebug(`Player CAPTURE: ${capturedStones} stones moved to store`);
                 }
             }
             // CPU capture condition: last stone lands in an empty pit on CPU's side
             else if (player === 'cpu' && lastPit >= 7 && lastPit <= 12 && this.board[lastPit] === 1) {
-                const oppositePit = 12 - lastPit;
+                // Calculate opposite pit - for CPU, the opposite pit is 7 less than the CPU's pit
+                const oppositePit = lastPit - 7;
+                this.logDebug(`CPU CAPTURE check: last pit ${lastPit} has 1 stone, opposite pit ${oppositePit} has ${this.board[oppositePit]} stones`);
+                
                 if (this.board[oppositePit] > 0) {
                     // Capture opposite stones and the capturing stone
-                    this.board[13] += this.board[oppositePit] + 1;
+                    const capturedStones = this.board[oppositePit] + 1;
+                    this.board[13] += capturedStones;
                     this.board[oppositePit] = 0;
                     this.board[lastPit] = 0;
+                    this.logDebug(`CPU CAPTURE: ${capturedStones} stones moved to store`);
                 }
             }
         }
@@ -519,7 +535,7 @@ class MancalaGame {
         return extraTurn;
     }
     
-    simulateMove(pitIndex) {
+    simulateMove(pitIndex, player = 'cpu') {
         // Create a copy of the board for simulation
         this.simulateBoardState = [...this.board];
         
@@ -557,14 +573,45 @@ class MancalaGame {
                 currentPit--;
             }
             
-            // Skip player's store (CPU is moving)
-            if (currentPit === 6) {
+            // Skip opponent's store
+            if (player === 'player' && currentPit === 13) {
+                // Player skips CPU's store
+                currentPit = 0;
+            } else if (player === 'cpu' && currentPit === 6) {
+                // CPU skips player's store
                 currentPit = 12;
             }
             
             // Add stone to the current pit
             this.simulateBoardState[currentPit]++;
             lastPit = currentPit;
+        }
+        
+        // Simulate capture rule
+        if (player === 'player') {
+            // Player capture condition
+            if (lastPit >= 0 && lastPit <= 5 && this.simulateBoardState[lastPit] === 1) {
+                // Calculate opposite pit - for player, the opposite pit is 7 more than the player's pit
+                const oppositePit = lastPit + 7;
+                if (this.simulateBoardState[oppositePit] > 0) {
+                    // Simulate capture in the board state
+                    this.simulateBoardState[6] += this.simulateBoardState[oppositePit] + 1;
+                    this.simulateBoardState[oppositePit] = 0;
+                    this.simulateBoardState[lastPit] = 0;
+                }
+            }
+        } else {
+            // CPU capture condition
+            if (lastPit >= 7 && lastPit <= 12 && this.simulateBoardState[lastPit] === 1) {
+                // Calculate opposite pit - for CPU, the opposite pit is 7 less than the CPU's pit
+                const oppositePit = lastPit - 7;
+                if (this.simulateBoardState[oppositePit] > 0) {
+                    // Simulate capture in the board state
+                    this.simulateBoardState[13] += this.simulateBoardState[oppositePit] + 1;
+                    this.simulateBoardState[oppositePit] = 0;
+                    this.simulateBoardState[lastPit] = 0;
+                }
+            }
         }
         
         return lastPit;
@@ -616,6 +663,15 @@ class MancalaGame {
             // Simulate the distribution
             let lastPit = this.simulateMove(i);
             
+            // Log the simulated board state
+            let simBoardStr = 'Simulated board: [';
+            for (let j = 0; j < this.simulateBoardState.length; j++) {
+                simBoardStr += this.simulateBoardState[j];
+                if (j < this.simulateBoardState.length - 1) simBoardStr += ',';
+            }
+            simBoardStr += ']';
+            this.logDebug(`- Pit ${i} simulation: last pit ${lastPit}, ${simBoardStr}`);
+            
             // Check if this move leads to an extra turn
             if (lastPit === 13) {
                 this.logDebug(`- Pit ${i}: CHOSEN - Will land in store (extra turn)`);
@@ -623,10 +679,11 @@ class MancalaGame {
             }
             
             // Check if this move leads to a capture
-            if (lastPit >= 7 && lastPit <= 12 && 
-                this.simulateBoardState[lastPit] === 1 && // last stone made it exactly 1
-                this.board[12 - lastPit] > 0) { // there are stones to capture
-                this.logDebug(`- Pit ${i}: CHOSEN - Will capture ${this.board[12 - lastPit]} stones from pit ${12 - lastPit}`);
+            // The capture is now simulated within simulateMove, so we only need to check
+            // if the simulated board's CPU store has more stones than the original board
+            if (this.simulateBoardState[13] > this.board[13]) {
+                const capturedStones = this.simulateBoardState[13] - this.board[13];
+                this.logDebug(`- Pit ${i}: CHOSEN - Will capture ${capturedStones} stones`);
                 return i; // Found a move that gives capture
             }
             
