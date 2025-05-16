@@ -79,14 +79,14 @@ h1 {
     justify-content: space-between; /* Push stores to the edges */
     align-items: center;
     background-color: #b38f65;
-    border-radius: 40px;
-    padding: 20px 30px;
+    border-radius: 50px;
+    padding: 30px 50px; /* Added 10px to horizontal padding (was 40px) */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     position: relative;
-    max-width: 700px;
+    max-width: 870px; /* Added 20px to max-width (was 850px) */
     margin: 0 auto;
     aspect-ratio: 1.6 / 1;
-    border: 12px solid #d8b585;
+    border: 15px solid #d8b585; /* Increased from 12px */
 }
 
 /* Add Flutter branding to the center of the board */
@@ -99,7 +99,7 @@ h1 {
 }
 
 .flutter-logo img {
-    width: 150px;
+    width: 180px; /* Increased from 150px */
     height: auto;
     opacity: 0.8;
 }
@@ -123,25 +123,25 @@ h1 {
     position: relative;
     flex: 1;
     height: 100%; /* Fill the height */
-    padding: 20px 0;
+    padding: 25px 0; /* Increased from 20px */
 }
 
 .row {
     display: flex;
     justify-content: space-between;
-    gap: 15px;
+    gap: 20px; /* Increased from 15px */
 }
 
 /* Make the board more spacious in the middle */
 .pit {
-    width: 70px;
-    height: 70px;
+    width: 85px; /* Increased from 70px */
+    height: 85px; /* Increased from 70px */
     border-radius: 50%;
     background-color: var(--pit-color);
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.3); /* Increased from 10px */
     position: relative;
     transition: all 0.3s ease;
     overflow: visible; /* Allow stones to overflow for animation */
@@ -151,22 +151,22 @@ h1 {
 .cpu-row .pit::before {
     content: attr(data-count);
     position: absolute;
-    bottom: 85px; /* Moved 5px closer to the pit */
+    bottom: 100px; /* Increased from 85px */
     left: 50%;
     transform: translateX(-50%);
     color: #8b5a2b;
-    font-size: 28px;
+    font-size: 30px; /* Increased from 28px */
     font-weight: bold;
 }
 
 .player-row .pit::after {
     content: attr(data-count);
     position: absolute;
-    top: 85px; /* Moved 5px closer to the pit */
+    top: 100px; /* Increased from 85px */
     left: 50%;
     transform: translateX(-50%);
     color: #8b5a2b;
-    font-size: 28px;
+    font-size: 30px; /* Increased from 28px */
     font-weight: bold;
 }
 
@@ -185,28 +185,36 @@ h1 {
 
 /* Update store pit shape to match image */
 .store {
-    width: 70px;
-    height: 75%; /* Make stores 80% of the board height */
+    width: 85px; /* Increased from 70px */
+    height: 75%; /* Keep stores 75% of the board height */
     align-self: center;
-    border-radius: 40px;
+    border-radius: 50px; /* Increased from 40px */
     background-color: #8e6b44;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.4); /* Increased from 15px */
     position: relative;
     overflow: visible; /* Allow stones to overflow for animation */
-    margin: 0 5px;
+    margin: 0 10px; /* Increased from 5px */
 }
 
-/* Add store counts in the center */
+/* Add store counts outside the stores */
 #player-store::after,
 #cpu-store::after {
     content: attr(data-count);
     position: absolute;
     color: #8b5a2b;
-    font-size: 36px;
+    font-size: 40px; /* Increased from 36px */
     font-weight: bold;
+}
+
+#player-store::after {
+    right: -45px; /* Moved inward from -60px */
+}
+
+#cpu-store::after {
+    left: -45px; /* Moved inward from -60px */
 }
 
 .store-count {
@@ -219,11 +227,11 @@ h1 {
 
 /* Colorful Stone Styles */
 .stone {
-    width: 24px;
-    height: 24px;
+    width: 28px; /* Increased from 24px */
+    height: 28px; /* Increased from 24px */
     border-radius: 50%;
     position: absolute;
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5); /* Increased from 5px */
     z-index: 5;
 }
 
@@ -231,12 +239,12 @@ h1 {
 .stone::after {
     content: '';
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: 12px; /* Increased from 10px */
+    height: 12px; /* Increased from 10px */
     background: rgba(255, 255, 255, 0.5);
     border-radius: 50%;
-    top: 4px;
-    left: 4px;
+    top: 5px; /* Adjusted from 4px */
+    left: 5px; /* Adjusted from 4px */
 }
 
 /* Animated Stone Styles */
@@ -416,8 +424,8 @@ h1 {
     }
     
     .store {
-        width: 180px;
-        height: 80px;
+        width: 220px; /* Increased from 180px */
+        height: 90px; /* Increased from 80px */
     }
     
     #player-store {
@@ -428,9 +436,20 @@ h1 {
         order: 1;
     }
     
+    /* Reposition store counts for mobile */
+    #player-store::after {
+        right: -40px;
+        bottom: 25px;
+    }
+    
+    #cpu-store::after {
+        left: -40px;
+        top: 25px;
+    }
+    
     .pit {
-        width: 60px;
-        height: 60px;
+        width: 70px; /* Increased from 60px */
+        height: 70px; /* Increased from 60px */
     }
     
     .modal-content {
